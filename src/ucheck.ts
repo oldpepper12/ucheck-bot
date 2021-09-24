@@ -3,6 +3,11 @@ import fs from "fs";
 import prompts from "prompts";
 import chalk from "chalk";
 
+const CONFIG = {
+    submit: true,
+    headless: true,
+}
+
 export function randomItem<T>(items: T[]) {
     return items[Math.floor(Math.random() * items.length)];
 }
@@ -18,7 +23,7 @@ export class UCheck {
 
     async init() {
         this.browser = await puppeteer.launch({
-            headless: true,
+            headless: CONFIG.headless,
         });
         // puppeteer seems to already launch with a page open; use that instead of creating a new one.
         this._page = (await this.browser.pages())[0];
@@ -81,6 +86,7 @@ export class UCheck {
         // click all seven "no" buttons
 
         let fieldDescriptions = [
+            "Is fully vaccinated",
             "Is experiencing COVID-19 Symptoms",
             "Is in contact with someone awaiting COVID-19 test",
             "Is currently required to quarantine",
@@ -96,41 +102,47 @@ export class UCheck {
             if (desc.length > fieldMaxLen) fieldMaxLen = desc.length;
         }
 
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
             let element = (await this.page.$$("fieldset")).pop()!;
             let buttons = await element.$$("span");
+            let buttonToClick = i===0 ? "Yes" : "No";
 
             for (let button of buttons) {
-                if ((await button.evaluate((n) => (n as HTMLElement).innerText)) === "No") {
+                if ((await button.evaluate((n) => (n as HTMLElement).innerText)) === buttonToClick) {
                     let current = fieldDescriptions[i];
                     process.stdout.write(
                         chalk.cyan(current) + "..." + " ".repeat(fieldMaxLen - current.length + 1)
                     );
                     button.click();
                     await this.sleep(300);
-                    console.log(chalk.green("NO"));
+                    console.log(chalk.green(buttonToClick));
                     break;
                 }
             }
         }
 
         // find and click the submit button
-        for (let button of await this.page.$$(".MuiButton-label")) {
-            if ((await button.evaluate((n) => (n as HTMLElement).innerText)) === "Submit") {
-                button.click();
-                break;
+        if (CONFIG.submit) {
+            for (let button of await this.page.$$(".MuiButton-label")) {
+                if ((await button.evaluate((n) => (n as HTMLElement).innerText)) === "Submit") {
+                    await button.click();
+                    break;
+                }
             }
+    
+            console.log("Finishing up...");
+    
+            await this.sleep(1000);
+            await this.browser.close();
         }
-
-        console.log("Finishing up...");
-
-        await this.sleep(1000);
-        await this.browser.close();
     }
 }
 
-(async () => {
-    let ucheck = new UCheck();
-    await ucheck.init();
-    await ucheck.ucheck();
-})();
+if (require.main === module) {
+    (async () => {
+        let ucheck = new UCheck();
+        await ucheck.init();
+        await ucheck.ucheck();
+    })();
+    
+}

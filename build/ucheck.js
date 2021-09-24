@@ -17,6 +17,10 @@ const puppeteer_1 = __importDefault(require("puppeteer"));
 const fs_1 = __importDefault(require("fs"));
 const prompts_1 = __importDefault(require("prompts"));
 const chalk_1 = __importDefault(require("chalk"));
+const CONFIG = {
+    submit: true,
+    headless: true,
+};
 function randomItem(items) {
     return items[Math.floor(Math.random() * items.length)];
 }
@@ -29,7 +33,7 @@ class UCheck {
     init() {
         return __awaiter(this, void 0, void 0, function* () {
             this.browser = yield puppeteer_1.default.launch({
-                headless: true,
+                headless: CONFIG.headless,
             });
             // puppeteer seems to already launch with a page open; use that instead of creating a new one.
             this._page = (yield this.browser.pages())[0];
@@ -79,6 +83,7 @@ class UCheck {
             yield this.page.waitForSelector("fieldset span");
             // click all seven "no" buttons
             let fieldDescriptions = [
+                "Is fully vaccinated",
                 "Is experiencing COVID-19 Symptoms",
                 "Is in contact with someone awaiting COVID-19 test",
                 "Is currently required to quarantine",
@@ -92,36 +97,41 @@ class UCheck {
                 if (desc.length > fieldMaxLen)
                     fieldMaxLen = desc.length;
             }
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < 8; i++) {
                 let element = (yield this.page.$$("fieldset")).pop();
                 let buttons = yield element.$$("span");
+                let buttonToClick = i === 0 ? "Yes" : "No";
                 for (let button of buttons) {
-                    if ((yield button.evaluate((n) => n.innerText)) === "No") {
+                    if ((yield button.evaluate((n) => n.innerText)) === buttonToClick) {
                         let current = fieldDescriptions[i];
                         process.stdout.write(chalk_1.default.cyan(current) + "..." + " ".repeat(fieldMaxLen - current.length + 1));
                         button.click();
                         yield this.sleep(300);
-                        console.log(chalk_1.default.green("NO"));
+                        console.log(chalk_1.default.green(buttonToClick));
                         break;
                     }
                 }
             }
             // find and click the submit button
-            for (let button of yield this.page.$$(".MuiButton-label")) {
-                if ((yield button.evaluate((n) => n.innerText)) === "Submit") {
-                    button.click();
-                    break;
+            if (CONFIG.submit) {
+                for (let button of yield this.page.$$(".MuiButton-label")) {
+                    if ((yield button.evaluate((n) => n.innerText)) === "Submit") {
+                        yield button.click();
+                        break;
+                    }
                 }
+                console.log("Finishing up...");
+                yield this.sleep(1000);
+                yield this.browser.close();
             }
-            console.log("Finishing up...");
-            yield this.sleep(1000);
-            yield this.browser.close();
         });
     }
 }
 exports.UCheck = UCheck;
-(() => __awaiter(void 0, void 0, void 0, function* () {
-    let ucheck = new UCheck();
-    yield ucheck.init();
-    yield ucheck.ucheck();
-}))();
+if (require.main === module) {
+    (() => __awaiter(void 0, void 0, void 0, function* () {
+        let ucheck = new UCheck();
+        yield ucheck.init();
+        yield ucheck.ucheck();
+    }))();
+}

@@ -1,4 +1,4 @@
-# ucheck-me
+# UCheck Bot
 
 A Node.js script that automatically fills out University of Toronto's COVID-19 self-screening assessment, also known as UCheck.
 
@@ -14,3 +14,7 @@ npm install
 ```
 
 Then, run either `ucheck.bat` for Windows or `ucheck.sh` for OS X/Linux.
+
+### Running UCheck Bot automatically
+
+To run UCheck every morning at around 7:00 AM, run `node build/scheduled_ucheck.js`
